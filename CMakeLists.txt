@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
 
-
-
 project(AclUnity)
 
 set(ACLUNITY_USE_ACL_SUBDIR false CACHE BOOL "Add ACL via add_subdirectory which allows code parsing of tools")
@@ -21,7 +19,16 @@ else()
 	file(GLOB_RECURSE aclHeaders "${PROJECT_SOURCE_DIR}/acl/includes**.h")
 endif()
 
-if (MSVC)
+# cross compile android from windows
+if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+	add_library(AclUnity SHARED ${src} ${apiHeaders} ${aclHeaders})
+	target_compile_options(AclUnity PUBLIC "--save-temps=obj")
+	# https://github.com/qiankanglai/unity-acl/blob/main/acl_unity/CMakeLists.txt
+	# Exceptions are not enabled by default for ARM targets, enable them
+	# target_compile_options(AclUnity PRIVATE /EHsc)
+	target_compile_features(AclUnity PUBLIC cxx_std_11)
+	target_include_directories(AclUnity PUBLIC "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/acl/includes" "${PROJECT_SOURCE_DIR}/acl/external/rtm/includes")
+elseif (MSVC)
 	if (ACLUNITY_IS_AVX)
 		add_library(AclUnity_AVX SHARED ${src} ${apiHeaders} ${aclHeaders})
 		target_compile_options(AclUnity_AVX PUBLIC "/arch:AVX2" "/FA")
@@ -48,6 +55,9 @@ elseif (APPLE AND (CMAKE_OSX_ARCHITECTURES STREQUAL "arm64"))
 		target_compile_features(AclUnity PUBLIC cxx_std_11)
 		target_include_directories(AclUnity PUBLIC "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/acl/includes" "${PROJECT_SOURCE_DIR}/acl/external/rtm/includes")
 elseif (UNIX OR APPLE)
+    # -masm=intel, x86平台, 生成intel风格的汇编
+	# -march=x86-64, 生成指定cpu类型(比如x86_64)的机器码
+	# --save-temps=obj, 保留中间过程产物
 	if (ACLUNITY_IS_AVX)
 		add_library(AclUnity_AVX SHARED ${src} ${apiHeaders} ${aclHeaders})
 		target_compile_options(AclUnity_AVX PUBLIC "-march=x86-64-v3" "--save-temps=obj" "-masm=intel")
